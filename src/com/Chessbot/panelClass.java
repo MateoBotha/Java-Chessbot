@@ -19,6 +19,8 @@ public class panelClass extends JPanel {
     int boardY; // the chessBoards yPos [which is also calculated in the paintComponent function]
     int boardWidth = 480; // the height of the chess board
     int boardHeight = 480; // the width of the chess board
+    Color darkSquare = new Color(171,122,101);
+    Color lightSquare = new Color(238,216,192);
     byte[][] board = new byte[numSquaresWidth][numSquaresHeight]; //The 'board' array works as follows:
     // 0 = empty, 1 = White pawn, 2 = White bishop, 3 = White knight, 4 = White rook, 5 = White queen, 6 = White king,
     // 7 = Black pawn, 8 = Black bishop, 9 = Black knight, 10 = Black rook, 11 = Black queen, 12 = Black king.
@@ -55,11 +57,11 @@ public class panelClass extends JPanel {
     public void draw(Graphics g) {
         for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
             for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
-                g.setColor(((xSquare+ySquare)%2!=0)?Color.black:Color.white); // changes the colour of the currentSquare
+                g.setColor(((xSquare+ySquare)%2!=0)?darkSquare:lightSquare); // changes the colour of the currentSquare
                 g.fillRect(widthBorder+xSquare*squareWidth,heightBorder+ySquare*squareHeight,squareWidth,squareHeight); //draws the current square
 
                 try {
-                    g.drawImage(ImageIO.read(new File("C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\Black_King.png")),widthBorder+xSquare*squareWidth,heightBorder+ySquare*squareHeight,squareWidth,squareHeight,null);
+                    drawPiece(g, board[xSquare][ySquare], xSquare, ySquare);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -71,7 +73,7 @@ public class panelClass extends JPanel {
         for (int i = 0; i < numSquaresHeight; i++) {
             for (int j = 0; j < numSquaresWidth; j++) {
                 // white pieces
-                if (i == 0) {
+                if (i == numSquaresHeight-1) {
                     // bottom row
                     switch (j) {
                         case 0, 7 -> board[j][i] = 4; //rooks
@@ -81,24 +83,47 @@ public class panelClass extends JPanel {
                         case 4 -> board[j][i] = 6;//king
                     }
                 }
-                if (i == 1) {
+                if (i == numSquaresHeight-2) {
                     board[j][i] = 1; // pawns
                 }
 
                 //black pieces
-                if (i == numSquaresHeight-1) {
+                if (i == 0) {
                     // top row
                     switch (j) {
                         case 0, 7 -> board[j][i] = 10; //rooks
-                        case 1, 6 -> board[j][i] = 8;//bishops
+                        case 1, 6 -> board[j][i] = 9;//knights
+                        case 2, 5 -> board[j][i] = 8;//bishops
                         case 3 -> board[j][i] = 11;//queen
                         case 4 -> board[j][i] = 12;//king
                     }
                 }
-                if (i == numSquaresHeight-2) {
+                if (i == 1) {
                     board[j][i] = 7; // pawns
                 }
             }
+        }
+    }
+    public void drawPiece(Graphics g, int pieceNum, int xSquare, int ySquare) throws IOException {
+        String pathname = "C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\";
+        boolean squareEmpty = false;
+        switch (pieceNum) {
+            case 0 -> squareEmpty = true;
+            case 1 -> pathname += "White_Pawn.png";
+            case 2 -> pathname += "White_Bishop.png";
+            case 3 -> pathname += "White_Knight.png";
+            case 4 -> pathname += "White_Rook.png";
+            case 5 -> pathname += "White_Queen.png";
+            case 6 -> pathname += "White_King.png";
+            case 7 -> pathname += "Black_Pawn.png";
+            case 8 -> pathname += "Black_Bishop.png";
+            case 9 -> pathname += "Black_Knight.png";
+            case 10 -> pathname += "Black_Rook.png";
+            case 11 -> pathname += "Black_Queen.png";
+            case 12 -> pathname += "Black_King.png";
+        }
+        if (!squareEmpty) {
+            g.drawImage(ImageIO.read(new File(pathname)), widthBorder + xSquare * squareWidth, heightBorder + ySquare * squareHeight, squareWidth, squareHeight, null);
         }
     }
 }

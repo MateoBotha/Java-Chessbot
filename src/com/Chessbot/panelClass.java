@@ -1,7 +1,10 @@
 package com.Chessbot;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
+import java.io.IOException;
 
 public class panelClass extends JPanel {
     int Screen_Width = 1000;
@@ -54,8 +57,15 @@ public class panelClass extends JPanel {
             for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
                 g.setColor(((xSquare+ySquare)%2!=0)?Color.black:Color.white); // changes the colour of the currentSquare
                 g.fillRect(widthBorder+xSquare*squareWidth,heightBorder+ySquare*squareHeight,squareWidth,squareHeight); //draws the current square
+
+                try {
+                    g.drawImage(ImageIO.read(new File("C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\Black_King.png")),widthBorder+xSquare*squareWidth,heightBorder+ySquare*squareHeight,squareWidth,squareHeight,null);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
+        repaint();
     }
     public void setupBoard() {
         for (int i = 0; i < numSquaresHeight; i++) {

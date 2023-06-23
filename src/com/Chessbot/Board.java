@@ -6,7 +6,41 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 
-public class panelClass extends JPanel {
+public class Board extends JFrame {
+    private final panel boardPanel;
+    Board(String name) {
+        boardPanel = new panel();
+        this.add(boardPanel);
+        this.setTitle(name);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setResizable(true);
+        this.setMinimumSize(new Dimension(boardPanel.Screen_Width,boardPanel.Screen_Height)); // making the window size never get smaller to prolong the space on the side. [This feature may not be permanent]
+        this.pack();
+        this.setVisible(true);
+        this.setLocationRelativeTo(null);
+    }
+    /**
+     * Makes a move on the board! It also has a basic legal move detection system, which allows it to stop a user trying to move an empty space, or trying to capture their own piece!
+     * @return True if the move was successful [you weren't trying to move an empty piece], and false if it wasn't successful [you tried to move an empty piece]
+     **/
+    public boolean makeMove(Move move) {
+        byte[][] boardCopy = boardPanel.board;
+
+        byte[] moveArray = move.getMove();
+        byte pieceStartX = moveArray[0], pieceStartY = moveArray[1], pieceEndX = moveArray[2], pieceEndY = moveArray[3];
+        if ((boardCopy[pieceStartX][pieceStartY] != 0) && ((boardCopy[pieceEndX][pieceEndY] == 0) || (((boardCopy[pieceStartX][pieceStartY]<7/*is white start piece*/))?boardCopy[pieceEndX][pieceEndY]>6:boardCopy[pieceEndX][pieceEndY]<7))) {
+            //Okay, So, the above if statement says that if you are not trying to move an empty space, and either the end piece is empty or you are moving into the other sides piece [capturing their piece].
+            boardCopy[pieceEndX][pieceEndY] = boardCopy[pieceStartX][pieceStartY]; // duplicating the piece to its end location
+            boardCopy[pieceStartX][pieceStartY] = 0; // deleting the original
+
+            boardPanel.board = boardCopy;
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+class panel extends JPanel {
     int Screen_Width = 1000;
     int Screen_Height = 500;
     static final int numSquaresWidth = 8;
@@ -24,7 +58,7 @@ public class panelClass extends JPanel {
     byte[][] board = new byte[numSquaresWidth][numSquaresHeight]; //The 'board' array works as follows:
     // 0 = empty, 1 = White pawn, 2 = White bishop, 3 = White knight, 4 = White rook, 5 = White queen, 6 = White king,
     // 7 = Black pawn, 8 = Black bishop, 9 = Black knight, 10 = Black rook, 11 = Black queen, 12 = Black king.
-    panelClass() {
+    panel() {
         this.setPreferredSize(new Dimension(Screen_Width,Screen_Height));
         this.setLayout(null);
         setupBoard();

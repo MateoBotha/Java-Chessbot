@@ -3,11 +3,21 @@ package com.Chessbot;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
 
+import static com.Chessbot.Board.*;
+
 public class Board extends JFrame {
     private final panel boardPanel;
+    protected static Point pieceThatMustFollowMouse = null; // the x and y of the piece that must follow the mouse
+    static int lastMouseX = 0,lastMouseY = 0;
+    static int currentMouseX,currentMouseY;
+    boolean ColourThatFollowsMouse; // white = true, black = false;
+    boolean piecesAreFollowingMouse = false; // this boolean is true if any pieces are following the mouse;
+    static volatile Move mouseMove = null;
     Board(String name) {
         boardPanel = new panel();
         this.add(boardPanel);
@@ -18,6 +28,58 @@ public class Board extends JFrame {
         this.pack();
         this.setVisible(true);
         this.setLocationRelativeTo(null);
+
+        this.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                for (int ySquare = 0; ySquare < boardPanel.numSquaresHeight; ySquare++) {
+                    for (int xSquare = 0; xSquare < boardPanel.numSquaresWidth; xSquare++) {
+                        int x = boardPanel.widthBorder + xSquare * boardPanel.squareWidth;
+                        int y = boardPanel.heightBorder + ySquare * boardPanel.squareHeight;
+                        int width = boardPanel.squareWidth;
+                        int height = boardPanel.squareHeight;
+                        if (e.getX() > x && e.getY() > y && e.getX() < x+width && e.getY() < y+height) {
+                            // if the current square that were looping over is the one that the mouse is in
+                            if ((boardPanel.board[xSquare][ySquare]!=0)&&((ColourThatFollowsMouse)?boardPanel.board[xSquare][ySquare]<7:boardPanel.board[xSquare][ySquare]>6)) {
+                                // if the selected square is not empty then it will follow the mouse. And if the selected piece is of the colour that the user is allowed to move
+                                if (piecesAreFollowingMouse) {
+                                    // if there are any pieces following the mouse;
+                                    pieceThatMustFollowMouse = new Point(xSquare, ySquare);
+                                }
+                            }
+                            if (pieceThatMustFollowMouse!=null&&(!(new Point(xSquare,ySquare).equals(pieceThatMustFollowMouse)))) {
+                                // a piece is being followed and the user just clicked again
+                                Move mouseMove = new Move(pieceThatMustFollowMouse.x, pieceThatMustFollowMouse.y,xSquare,ySquare); // getting the mouseMove from the start and end points
+                                //System.out.println(Arrays.toString(new int[]{pieceThatMustFollowMouse.x, pieceThatMustFollowMouse.y, xSquare, ySquare}));
+                                pieceThatMustFollowMouse=null; // setting the piece that is following the mouse to null, essentially making it so that no piece is following the mouse
+                                piecesAreFollowingMouse = false; // making it so that if the user clicks again, nothing will happen
+                                Board.mouseMove = mouseMove;
+                            }
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+
+            }
+        });
     }
     /**
      * Makes a move on the board! It also has a basic legal move detection system, which allows it to stop a user trying to move an empty space, or trying to capture their own piece!
@@ -39,12 +101,38 @@ public class Board extends JFrame {
             return false;
         }
     }
+    /**
+     * Allows the user to make a move as white with the mouse!
+     * @return The move that was attempted by the user
+    **/
+    public Move allowSingleMouseMoveForWhite() {
+        ColourThatFollowsMouse = true;
+        piecesAreFollowingMouse = true;
+
+        while (mouseMove == null) {
+            continue;
+        }
+        return mouseMove;
+    }
+    /**
+     * Allows the user to make a move as Black with the mouse!
+     * @return The move that was attempted by the user
+     **/
+    public Move allowSingleMouseMoveForBlack() {
+        ColourThatFollowsMouse = false;
+        piecesAreFollowingMouse = true;
+
+        while (mouseMove == null) {
+            continue;
+        }
+        return mouseMove;
+    }
 }
 class panel extends JPanel {
     int Screen_Width = 1000;
     int Screen_Height = 500;
-    static final int numSquaresWidth = 8;
-    static final int numSquaresHeight = 8;
+    final int numSquaresWidth = 8;
+    final int numSquaresHeight = 8;
     int squareWidth;
     int squareHeight;
     int widthBorder = 100; // the chessBoards default width border [it can be set to anything because it updates when the programme starts]
@@ -89,16 +177,37 @@ class panel extends JPanel {
         //TODO: make this code above better and make it so that a constant number of pixels that aren't part of the board are visible on the x axis. Like the widthBorder but it should work if the window is resized.
     }
     public void draw(Graphics g) {
+        // drawing the squares
         for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
             for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
-                g.setColor(((xSquare+ySquare)%2!=0)?darkSquare:lightSquare); // changes the colour of the currentSquare
-                g.fillRect(widthBorder+xSquare*squareWidth,heightBorder+ySquare*squareHeight,squareWidth,squareHeight); //draws the current square
-
+                g.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // changes the colour of the currentSquare
+                g.fillRect(widthBorder + xSquare * squareWidth, heightBorder + ySquare * squareHeight, squareWidth, squareHeight); //draws the current square
+            }
+        }
+        // drawing the pieces
+        for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
+            for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
                 try {
-                    drawPiece(g, board[xSquare][ySquare], xSquare, ySquare);
+                    if ((!new Point(xSquare, ySquare).equals(pieceThatMustFollowMouse))) {
+                        drawPiece(g, board[xSquare][ySquare], xSquare, ySquare);
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            }
+        }
+        // drawing the piece that is currently been moved by the mouse
+        if (pieceThatMustFollowMouse!=null) {
+            // if there is any piece that is being moved by the mouse
+            try {
+                lastMouseX = currentMouseX;
+                lastMouseY = currentMouseY;
+                currentMouseX = (getMousePosition() == null) ? 0 : getMousePosition().x;
+                currentMouseY = (getMousePosition() == null) ? 0 : getMousePosition().y;
+                //System.out.println((new File(getPathnameFromPieceNum(board[pieceThatMustFollowMouse.x][pieceThatMustFollowMouse.y]))));
+                g.drawImage(ImageIO.read(new File(getPathnameFromPieceNum(board[pieceThatMustFollowMouse.x][pieceThatMustFollowMouse.y]))), currentMouseX, currentMouseY, squareWidth, squareHeight, null);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
         repaint();
@@ -137,6 +246,26 @@ class panel extends JPanel {
                 }
             }
         }
+    }
+    public String getPathnameFromPieceNum(int pieceNum) {
+        String pathname = "C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\";
+        boolean squareEmpty = false;
+        switch (pieceNum) {
+            case 0 -> squareEmpty = true;
+            case 1 -> pathname += "White_Pawn.png";
+            case 2 -> pathname += "White_Bishop.png";
+            case 3 -> pathname += "White_Knight.png";
+            case 4 -> pathname += "White_Rook.png";
+            case 5 -> pathname += "White_Queen.png";
+            case 6 -> pathname += "White_King.png";
+            case 7 -> pathname += "Black_Pawn.png";
+            case 8 -> pathname += "Black_Bishop.png";
+            case 9 -> pathname += "Black_Knight.png";
+            case 10 -> pathname += "Black_Rook.png";
+            case 11 -> pathname += "Black_Queen.png";
+            case 12 -> pathname += "Black_King.png";
+        }
+        return (squareEmpty)?null:pathname;
     }
     public void drawPiece(Graphics g, int pieceNum, int xSquare, int ySquare) throws IOException {
         String pathname = "C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\";

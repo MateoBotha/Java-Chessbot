@@ -5,6 +5,8 @@ public class Main {
     public static void main(String[] args) {
         board = new Board("Chess");
 
-        System.out.println(board.makeMove(new Move(0,6,0,6)));
+        Move mouseMove = board.allowSingleMouseMoveForWhite();
+        board.makeMove(mouseMove);
+        //System.out.println(board.makeMove(new Move(0,6,0,6)));
     }
 }

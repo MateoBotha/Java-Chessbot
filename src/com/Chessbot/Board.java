@@ -9,10 +9,9 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.Chessbot.Board.*;
-
 public class Board extends JFrame {
     private final panel boardPanel;
-    protected static Point pieceThatMustFollowMouse = null; // the x and y of the piece that must follow the mouse
+    static Point pieceThatMustFollowMouse = null; // the x and y of the piece that must follow the mouse
     static int lastMouseX = 0,lastMouseY = 0;
     static int currentMouseX,currentMouseY;
     boolean ColourThatFollowsMouse; // white = true, black = false;
@@ -29,7 +28,7 @@ public class Board extends JFrame {
         this.setVisible(true);
         this.setLocationRelativeTo(null);
 
-        this.addMouseListener(new MouseListener() {
+        boardPanel.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent e) {
 
@@ -44,8 +43,8 @@ public class Board extends JFrame {
             public void mouseReleased(MouseEvent e) {
                 for (int ySquare = 0; ySquare < boardPanel.numSquaresHeight; ySquare++) {
                     for (int xSquare = 0; xSquare < boardPanel.numSquaresWidth; xSquare++) {
-                        int x = boardPanel.widthBorder + xSquare * boardPanel.squareWidth;
-                        int y = boardPanel.heightBorder + ySquare * boardPanel.squareHeight;
+                        int x = boardPanel.widthBorder + (xSquare * boardPanel.squareWidth);
+                        int y = boardPanel.heightBorder + (ySquare * boardPanel.squareHeight);
                         int width = boardPanel.squareWidth;
                         int height = boardPanel.squareHeight;
                         if (e.getX() > x && e.getY() > y && e.getX() < x+width && e.getY() < y+height) {
@@ -202,10 +201,10 @@ class panel extends JPanel {
             try {
                 lastMouseX = currentMouseX;
                 lastMouseY = currentMouseY;
-                currentMouseX = (getMousePosition() == null) ? 0 : getMousePosition().x;
-                currentMouseY = (getMousePosition() == null) ? 0 : getMousePosition().y;
+                currentMouseX = (getMousePosition() == null) ? lastMouseX : getMousePosition().x;
+                currentMouseY = (getMousePosition() == null) ? lastMouseY : getMousePosition().y;
                 //System.out.println((new File(getPathnameFromPieceNum(board[pieceThatMustFollowMouse.x][pieceThatMustFollowMouse.y]))));
-                g.drawImage(ImageIO.read(new File(getPathnameFromPieceNum(board[pieceThatMustFollowMouse.x][pieceThatMustFollowMouse.y]))), currentMouseX, currentMouseY, squareWidth, squareHeight, null);
+                g.drawImage(ImageIO.read(new File(getPathnameFromPieceNum(board[pieceThatMustFollowMouse.x][pieceThatMustFollowMouse.y]))), currentMouseX-(squareWidth/2), currentMouseY-(squareHeight/2), squareWidth, squareHeight, null);
             } catch (IOException e) {
                 e.printStackTrace();
             }

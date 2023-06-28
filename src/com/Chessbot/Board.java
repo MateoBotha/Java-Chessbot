@@ -5,6 +5,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
@@ -95,6 +96,7 @@ public class Board extends JFrame {
             boardCopy[pieceStartX][pieceStartY] = 0; // deleting the original
 
             boardPanel.board = boardCopy;
+            boardPanel.updateBoardAndAllNonMovingPieces = true;
             return true;
         } else {
             return false;
@@ -130,6 +132,8 @@ public class Board extends JFrame {
 class panel extends JPanel {
     int Screen_Width = 1000;
     int Screen_Height = 500;
+    int previous_Screen_Width;
+    int previous_Screen_Height;
     final int numSquaresWidth = 8;
     final int numSquaresHeight = 8;
     int squareWidth;
@@ -145,6 +149,8 @@ class panel extends JPanel {
     byte[][] board = new byte[numSquaresWidth][numSquaresHeight]; //The 'board' array works as follows:
     // 0 = empty, 1 = White pawn, 2 = White bishop, 3 = White knight, 4 = White rook, 5 = White queen, 6 = White king,
     // 7 = Black pawn, 8 = Black bishop, 9 = Black knight, 10 = Black rook, 11 = Black queen, 12 = Black king.
+    BufferedImage boardAndAllNonMovingPieces; // this will allow for faster performance because we won't have to repaint everything
+    boolean updateBoardAndAllNonMovingPieces = true; // this will trigger when you should update the bufferedImage 'boardAndAllNonMovingPieces'
     panel() {
         this.setPreferredSize(new Dimension(Screen_Width,Screen_Height));
         this.setLayout(null);
@@ -153,6 +159,8 @@ class panel extends JPanel {
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
 
+        previous_Screen_Width = Screen_Width;
+        previous_Screen_Height = Screen_Height;
         Screen_Height = getHeight();
         Screen_Width = getWidth();
         squareWidth = (Screen_Width-(widthBorder*2))/numSquaresWidth; // calculating how wide each square should be, and has the widthBorder to control the width border
@@ -172,29 +180,40 @@ class panel extends JPanel {
         int sizeY = Math.min(Screen_Height,Screen_Width); // doing the same thing
         boardWidth = sizeX;
         boardHeight = sizeY;
+        if ((Screen_Width!=previous_Screen_Width)||(Screen_Height!=previous_Screen_Height)||(boardAndAllNonMovingPieces==null)) {
+            // creating the imageBuffer to store the board and non-moving things if the window was resized (or if it is null so that we can initialize it)so that we don't have to repaint it
+            boardAndAllNonMovingPieces = new BufferedImage(squareWidth * numSquaresWidth, squareHeight * numSquaresHeight, BufferedImage.TYPE_INT_RGB); // it could be set to boardWidth and boardHeight, but then it will be slightly inaccurate as sometimes we lose a coupe of pixels as it is impossible to evenly divide some numbers by 8 (or numSquaresWidth if you prefer)
+            updateBoardAndAllNonMovingPieces = true; // update the board because the Screen was resized
+        }
         draw(g);
         //TODO: make this code above better and make it so that a constant number of pixels that aren't part of the board are visible on the x axis. Like the widthBorder but it should work if the window is resized.
     }
     public void draw(Graphics g) {
-        // drawing the squares
-        for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
-            for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
-                g.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // changes the colour of the currentSquare
-                g.fillRect(widthBorder + xSquare * squareWidth, heightBorder + ySquare * squareHeight, squareWidth, squareHeight); //draws the current square
-            }
-        }
-        // drawing the pieces
-        for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
-            for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
-                try {
-                    if ((!new Point(xSquare, ySquare).equals(pieceThatMustFollowMouse))) {
-                        drawPiece(g, board[xSquare][ySquare], xSquare, ySquare);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
+        if (updateBoardAndAllNonMovingPieces) {
+            Graphics2D stationaryGraphics = boardAndAllNonMovingPieces.createGraphics(); // a place to draw all things that may stand still for a while
+            // drawing the squares on the BufferedImage
+            for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
+                for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
+                    stationaryGraphics.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // changes the colour of the currentSquare
+                    stationaryGraphics.fillRect(xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight); //draws the current square
                 }
             }
+            // drawing the pieces on the bufferedImage
+            for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
+                for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
+                    try {
+                        if ((!new Point(xSquare, ySquare).equals(pieceThatMustFollowMouse))) {
+                            drawPiece(stationaryGraphics, board[xSquare][ySquare], xSquare, ySquare);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            updateBoardAndAllNonMovingPieces = false;
         }
+        // drawing the bufferedImage
+        g.drawImage(boardAndAllNonMovingPieces,widthBorder,heightBorder,(squareWidth*numSquaresWidth),squareHeight*numSquaresHeight, null);
         // drawing the piece that is currently been moved by the mouse
         if (pieceThatMustFollowMouse!=null) {
             // if there is any piece that is being moved by the mouse
@@ -209,7 +228,7 @@ class panel extends JPanel {
                 e.printStackTrace();
             }
         }
-        repaint();
+        repaint(); // repainting the moving piece and if a move was made then updating all the pieces
     }
     public void setupBoard() {
         for (int i = 0; i < numSquaresHeight; i++) {
@@ -266,7 +285,7 @@ class panel extends JPanel {
         }
         return (squareEmpty)?null:pathname;
     }
-    public void drawPiece(Graphics g, int pieceNum, int xSquare, int ySquare) throws IOException {
+    public void drawPiece(Graphics2D g2d, int pieceNum, int xSquare, int ySquare) throws IOException {
         String pathname = "C:\\Users\\mateo\\IdeaProjects\\Chessbot\\assets\\";
         boolean squareEmpty = false;
         switch (pieceNum) {
@@ -285,7 +304,7 @@ class panel extends JPanel {
             case 12 -> pathname += "Black_King.png";
         }
         if (!squareEmpty) {
-            g.drawImage(ImageIO.read(new File(pathname)), widthBorder + xSquare * squareWidth, heightBorder + ySquare * squareHeight, squareWidth, squareHeight, null);
+            g2d.drawImage(ImageIO.read(new File(pathname)), xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight, null);
         }
     }
 }

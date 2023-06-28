@@ -97,6 +97,7 @@ public class Board extends JFrame {
 
             boardPanel.board = boardCopy;
             boardPanel.updateBoardAndAllNonMovingPieces = true;
+            boardPanel.updatePieces = true;
             return true;
         } else {
             return false;
@@ -151,9 +152,19 @@ class panel extends JPanel {
     // 7 = Black pawn, 8 = Black bishop, 9 = Black knight, 10 = Black rook, 11 = Black queen, 12 = Black king.
     BufferedImage boardAndAllNonMovingPieces; // this will allow for faster performance because we won't have to repaint everything
     boolean updateBoardAndAllNonMovingPieces = true; // this will trigger when you should update the bufferedImage 'boardAndAllNonMovingPieces'
+    boolean updatePieces = true; // will override the 'updateBoardAndAllNonMovingPieces' to update the pieces, This is used to make the piece disappear when you click on it.
+    byte numUpdates = 3; //this is awful code, but I found out that [on my pc] if I update the bufferedImage exactly 3 times, it loads properly [this is only for when the programme boots up... because for some reason after the first move... everything suddenly works] oh and btw if you set the number of times to 0,1,2 you get different results each time, which makes no sense! Can someone help me TODO: make it work without this weird hard coded running of five times
+    int delay = 5000; // updates the bufferedImage every 5 seconds
+    Timer timer; // every 'delay' milliseconds we update the bufferedImage, even if nothing happens
     panel() {
         this.setPreferredSize(new Dimension(Screen_Width,Screen_Height));
         this.setLayout(null);
+        timer = new Timer(delay, e -> {
+            // updating the bufferedImage
+            updateBoardAndAllNonMovingPieces = true;
+            updatePieces = true;
+        });
+        timer.start();
         setupBoard();
     }
     public void paintComponent(Graphics g) {
@@ -180,17 +191,19 @@ class panel extends JPanel {
         int sizeY = Math.min(Screen_Height,Screen_Width); // doing the same thing
         boardWidth = sizeX;
         boardHeight = sizeY;
-        if ((Screen_Width!=previous_Screen_Width)||(Screen_Height!=previous_Screen_Height)||(boardAndAllNonMovingPieces==null)) {
-            // creating the imageBuffer to store the board and non-moving things if the window was resized (or if it is null so that we can initialize it)so that we don't have to repaint it
+        if ((numUpdates > 0)||(Screen_Width!=previous_Screen_Width)||(Screen_Height!=previous_Screen_Height)||(boardAndAllNonMovingPieces==null)||(updateBoardAndAllNonMovingPieces)) {
+            // creating the imageBuffer to store the board and non-moving things if the window was resized (or if it is null so that we can initialize it, or [for like the 18 time] if an update to it is due) so that we don't have to repaint it
             boardAndAllNonMovingPieces = new BufferedImage(squareWidth * numSquaresWidth, squareHeight * numSquaresHeight, BufferedImage.TYPE_INT_RGB); // it could be set to boardWidth and boardHeight, but then it will be slightly inaccurate as sometimes we lose a coupe of pixels as it is impossible to evenly divide some numbers by 8 (or numSquaresWidth if you prefer)
             updateBoardAndAllNonMovingPieces = true; // update the board because the Screen was resized
+            updatePieces = true;
+            numUpdates--; // counting it down
         }
         draw(g);
         //TODO: make this code above better and make it so that a constant number of pixels that aren't part of the board are visible on the x axis. Like the widthBorder but it should work if the window is resized.
     }
     public void draw(Graphics g) {
+        Graphics2D stationaryGraphics = boardAndAllNonMovingPieces.createGraphics(); // a place to draw all things that may stand still for a while
         if (updateBoardAndAllNonMovingPieces) {
-            Graphics2D stationaryGraphics = boardAndAllNonMovingPieces.createGraphics(); // a place to draw all things that may stand still for a while
             // drawing the squares on the BufferedImage
             for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
                 for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
@@ -198,25 +211,33 @@ class panel extends JPanel {
                     stationaryGraphics.fillRect(xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight); //draws the current square
                 }
             }
+            updateBoardAndAllNonMovingPieces = false;
+        }
+
+        if (updatePieces) {
             // drawing the pieces on the bufferedImage
             for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
                 for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
                     try {
-                        if ((!new Point(xSquare, ySquare).equals(pieceThatMustFollowMouse))) {
+                        if (!(new Point(xSquare, ySquare).equals(pieceThatMustFollowMouse))) {
                             drawPiece(stationaryGraphics, board[xSquare][ySquare], xSquare, ySquare);
+                        } else {
+                            stationaryGraphics.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // filling that square with the colour of the current Square because it will only replace when the window is resized [because of the optimization]
+                            stationaryGraphics.fillRect(xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight); //filling the square with the colour of the piece it was on to cover it up
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
             }
-            updateBoardAndAllNonMovingPieces = false;
+            updatePieces = false;
         }
         // drawing the bufferedImage
         g.drawImage(boardAndAllNonMovingPieces,widthBorder,heightBorder,(squareWidth*numSquaresWidth),squareHeight*numSquaresHeight, null);
         // drawing the piece that is currently been moved by the mouse
         if (pieceThatMustFollowMouse!=null) {
             // if there is any piece that is being moved by the mouse
+            updatePieces = true; // update the pieces so that the one that is following the mouse will disappear
             try {
                 lastMouseX = currentMouseX;
                 lastMouseY = currentMouseY;

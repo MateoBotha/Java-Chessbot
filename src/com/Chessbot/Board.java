@@ -12,7 +12,7 @@ import java.io.IOException;
 import static com.Chessbot.Board.*;
 public class Board extends JFrame {
     private final panel boardPanel;
-    static Point pieceThatMustFollowMouse = null; // the x and y of the piece that must follow the mouse
+    static volatile Point pieceThatMustFollowMouse = null; // the x and y of the piece that must follow the mouse
     static int lastMouseX = 0,lastMouseY = 0;
     static int currentMouseX,currentMouseY;
     boolean ColourThatFollowsMouse; // white = true, black = false;
@@ -59,7 +59,9 @@ public class Board extends JFrame {
                             }
                             if (pieceThatMustFollowMouse!=null&&(!(new Point(xSquare,ySquare).equals(pieceThatMustFollowMouse)))) {
                                 // a piece is being followed and the user just clicked again
-                                Move mouseMove = new Move(pieceThatMustFollowMouse.x, pieceThatMustFollowMouse.y,xSquare,ySquare); // getting the mouseMove from the start and end points
+
+                                byte specialMoveID = 0; // setting it to 0 because 0 in binary is 00000000, which is not a special move
+                                Move mouseMove = new Move(pieceThatMustFollowMouse.x, pieceThatMustFollowMouse.y,xSquare,ySquare,specialMoveID); // getting the mouseMove from the start and end points
                                 //System.out.println(Arrays.toString(new int[]{pieceThatMustFollowMouse.x, pieceThatMustFollowMouse.y, xSquare, ySquare}));
                                 pieceThatMustFollowMouse=null; // setting the piece that is following the mouse to null, essentially making it so that no piece is following the mouse
                                 piecesAreFollowingMouse = false; // making it so that if the user clicks again, nothing will happen
@@ -80,6 +82,37 @@ public class Board extends JFrame {
 
             }
         });
+    }
+    public int openPromotionWindow(String windowName) {
+        promotionWindow promotionWindow = new promotionWindow(windowName);
+        while (!promotionWindow.promotionDecided) {
+            {
+                try {
+                    Thread.sleep(1); // do something
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return promotionWindow.whatToPromoteTo;
+    }
+    public Point getPieceThatMustFollowMouseForWhite() {
+        piecesAreFollowingMouse = true;
+        ColourThatFollowsMouse = true;
+
+        while (pieceThatMustFollowMouse==null) {
+            continue;
+        }
+        return pieceThatMustFollowMouse;
+    }
+    public Point getPieceThatMustFollowMouseForBlack() {
+        piecesAreFollowingMouse = true;
+        ColourThatFollowsMouse = false;
+
+        while (pieceThatMustFollowMouse==null) {
+            continue;
+        }
+        return pieceThatMustFollowMouse;
     }
     /**
      * Makes a move on the board! It also has a basic legal move detection system, which allows it to stop a user trying to move an empty space, or trying to capture their own piece!
@@ -129,6 +162,61 @@ public class Board extends JFrame {
         }
         return mouseMove;
     }
+    /**
+     * adds a piece to be highlighted.
+     * @param x The x position for the highlighted piece on the board
+     * @param y The y position for the highlighted piece on the board
+     **/
+    public void addHighlightedPiece(int x, int y) {
+        boolean isAlreadyHighlighted = false;
+        boolean isOutOfBounds = false;
+        // below is code to check if the current piece is already highlighted
+        for (int i = 0; i < boardPanel.numHighlightedPieces; i++) {
+            if (boardPanel.allHighlightedPieces[i].equals(new Point(x, y))) {
+                // this element is already highlighted
+                isAlreadyHighlighted = true;
+            }
+        }
+
+        //below is code to check if the current piece is out of bounds
+        if ((x>boardPanel.numSquaresWidth)||(y>boardPanel.numSquaresHeight)||(x<0)||(y<0)) {
+            isOutOfBounds = true; // if it is bigger than the board or is negative then it is considered out of bounds
+        }
+
+        if ((!isAlreadyHighlighted)&&(!isOutOfBounds)) {
+            // ^ if the new highlighted piece isn't already highlighted ^
+
+            //adding the highlighted piece
+            boardPanel.numHighlightedPieces++;
+            Point[] copy = boardPanel.allHighlightedPieces; // making a copy
+            boardPanel.allHighlightedPieces = new Point[boardPanel.numHighlightedPieces]; // updating the size
+            System.arraycopy(copy, 0, boardPanel.allHighlightedPieces, 0, copy.length); // adding the previous amount of data
+            boardPanel.allHighlightedPieces[boardPanel.numHighlightedPieces - 1] = new Point(x, y); // adding the new data
+
+            // updating the board
+            boardPanel.updateBoardAndAllNonMovingPieces = true;
+            boardPanel.updatePieces = true;
+        }
+    }
+    /**
+     * Clears all highlights made.
+     **/
+    public void clearAllHighlights() {
+        // resting the highlighted pieces
+        boardPanel.numHighlightedPieces = 0;
+        boardPanel.allHighlightedPieces = new Point[boardPanel.numHighlightedPieces];
+
+        //updating the board
+        boardPanel.updateBoardAndAllNonMovingPieces = true;
+        boardPanel.updatePieces = true;
+    }
+    /**
+     * gets the board as a 2D byte array.
+     * @return The 2D byte array
+     **/
+    public byte[][] getBoard() {
+        return boardPanel.board;
+    }
 }
 class panel extends JPanel {
     int Screen_Width = 1000;
@@ -147,6 +235,7 @@ class panel extends JPanel {
     int boardHeight = 480; // the width of the chess board
     Color darkSquare = new Color(171,122,101);
     Color lightSquare = new Color(238,216,192);
+    Color highLightedSquares = new Color(248, 2, 2);
     byte[][] board = new byte[numSquaresWidth][numSquaresHeight]; //The 'board' array works as follows:
     // 0 = empty, 1 = White pawn, 2 = White bishop, 3 = White knight, 4 = White rook, 5 = White queen, 6 = White king,
     // 7 = Black pawn, 8 = Black bishop, 9 = Black knight, 10 = Black rook, 11 = Black queen, 12 = Black king.
@@ -156,6 +245,8 @@ class panel extends JPanel {
     byte numUpdates = 3; //this is awful code, but I found out that [on my pc] if I update the bufferedImage exactly 3 times, it loads properly [this is only for when the programme boots up... because for some reason after the first move... everything suddenly works] oh and btw if you set the number of times to 0,1,2 you get different results each time, which makes no sense! Can someone help me TODO: make it work without this weird hard coded running of five times
     int delay = 5000; // updates the bufferedImage every 5 seconds
     Timer timer; // every 'delay' milliseconds we update the bufferedImage, even if nothing happens
+    int numHighlightedPieces = 0;// the num of highlighted pieces
+    Point[] allHighlightedPieces = new Point[numHighlightedPieces]; // an array to store all highlighted pieces
     panel() {
         this.setPreferredSize(new Dimension(Screen_Width,Screen_Height));
         this.setLayout(null);
@@ -208,6 +299,14 @@ class panel extends JPanel {
             for (int ySquare = 0; ySquare < numSquaresHeight; ySquare++) {
                 for (int xSquare = 0; xSquare < numSquaresWidth; xSquare++) {
                     stationaryGraphics.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // changes the colour of the currentSquare
+                    // the code below just checks if the current square is a highlighted piece and if so, it changes the colour of the square
+                    for (Point allHighlightedPiece : allHighlightedPieces) {
+                        if (allHighlightedPiece.equals(new Point(xSquare, ySquare))) {
+                            // if the current piece is highlighted
+                            stationaryGraphics.setColor(highLightedSquares);
+                        }
+                    }
+
                     stationaryGraphics.fillRect(xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight); //draws the current square
                 }
             }
@@ -223,6 +322,15 @@ class panel extends JPanel {
                             drawPiece(stationaryGraphics, board[xSquare][ySquare], xSquare, ySquare);
                         } else {
                             stationaryGraphics.setColor(((xSquare + ySquare) % 2 != 0) ? darkSquare : lightSquare); // filling that square with the colour of the current Square because it will only replace when the window is resized [because of the optimization]
+
+                            // the code below just checks if the current square is a highlighted piece and if so, it changes the colour of the square
+                            for (Point allHighlightedPiece : allHighlightedPieces) {
+                                if (allHighlightedPiece.equals(new Point(xSquare, ySquare))) {
+                                    // if the current piece is highlighted
+                                    stationaryGraphics.setColor(highLightedSquares);
+                                }
+                            }
+
                             stationaryGraphics.fillRect(xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight); //filling the square with the colour of the piece it was on to cover it up
                         }
                     } catch (IOException e) {
@@ -326,6 +434,101 @@ class panel extends JPanel {
         }
         if (!squareEmpty) {
             g2d.drawImage(ImageIO.read(new File(pathname)), xSquare * squareWidth, ySquare * squareHeight, squareWidth, squareHeight, null);
+        }
+    }
+}
+class promotionWindow {
+    promotionPanel promotionPanel;
+    JFrame frame = new JFrame();
+    int whatToPromoteTo;
+    boolean promotionDecided = false;
+    promotionWindow(String name) {
+        promotionPanel = new promotionPanel();
+
+        frame.add(promotionPanel);
+        frame.setTitle(name);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setResizable(true);
+        frame.setMinimumSize(new Dimension(promotionPanel.Screen_Width,promotionPanel.Screen_Height)); // making the window size never get smaller to prolong the space on the side. [This feature may not be permanent]
+        frame.pack();
+        frame.setVisible(true);
+        frame.setLocationRelativeTo(null);
+    }
+    class promotionPanel extends JPanel {
+        int Screen_Width = 500;
+        int Screen_Height = 500;
+
+        int mouseX;
+        int mouseY;
+        boolean mouseClicked = false; // when it pulses, we check the x and y and set it to false
+        promotionPanel() {
+            this.setPreferredSize(new Dimension(Screen_Width,Screen_Height));
+            this.setLayout(null);
+
+            this.addMouseListener(new MouseListener() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+
+                }
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    mouseX = e.getX();
+                    mouseY = e.getY();
+                    mouseClicked = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+
+                }
+            });
+        }
+        public void paintComponent(Graphics g) {
+            Screen_Width = this.getWidth();
+            Screen_Height = this.getHeight();
+
+            super.paintComponent(g);
+            draw(g);
+        }
+        public void draw(Graphics g) {
+            byte[] promotablePieces = new byte[]{2,3,4,5}; // the three are part of: 0 = empty, 1 = pawn, 2 = bishop, 3 = knight, 4 = rook, 5 = queen, 6 = king. [no colour specified here]
+            int numOfPromotablePieces = promotablePieces.length;
+
+            for (int i = 0; i < numOfPromotablePieces; i++) {
+                int x = 0;
+                int y = i*(Screen_Height/numOfPromotablePieces);
+                int width = Screen_Width;
+                int height = Screen_Height/numOfPromotablePieces;
+                g.drawRect(x,y,width,height);
+
+                String piece = new String[]{"Empty","Pawn","Bishop","Knight","Rook","Queen","King"}[promotablePieces[i]];
+                g.setFont(new Font("Ink free",Font.BOLD,25));
+                FontMetrics metrics = g.getFontMetrics();
+                g.drawString(piece,((x+width)/2)-(metrics.stringWidth(piece)/2),(y+(height)/2)); // drawing the pieces
+
+                if (mouseClicked) {
+                    if (((mouseX<(x+width))&&(mouseX>x))&&((mouseY<(y+height))&&(mouseY>y))) {
+                        // if we are in a block
+                        whatToPromoteTo = promotablePieces[i];
+                        promotionDecided = true;
+                        frame.dispose();
+                    }
+                }
+            }
+            mouseClicked = false; // turning it back off after we've drawn and checked every block
+
         }
     }
 }
